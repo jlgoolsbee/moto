@@ -87,6 +87,9 @@ class CloudFormationResponse(BaseResponse):
         stack_name = self._get_param("StackName")
         change_set_name = self._get_param("ChangeSetName")
         stack_body = self._get_param("TemplateBody")
+        stack = self.cloudformation_backend.get_stack(stack_name)
+        if self._get_param("UsePreviousTemplate") == "true":
+            stack_body = stack.template
         template_url = self._get_param("TemplateURL")
         role_arn = self._get_param("RoleARN")
         update_or_create = self._get_param("ChangeSetType", "CREATE")
@@ -98,7 +101,16 @@ class CloudFormationResponse(BaseResponse):
         parameters = {
             param["parameter_key"]: param["parameter_value"]
             for param in parameters_list
+            if "parameter_value" in param
         }
+        previous = dict(
+            [
+                (param["parameter_key"], stack.parameters[param["parameter_key"]])
+                for param in parameters_list
+                if "use_previous_value" in param
+            ]
+        )
+        parameters.update(previous)
         if template_url:
             stack_body = self._get_stack_from_s3_url(template_url)
         stack_notification_arns = self._get_multi_param("NotificationARNs.member")

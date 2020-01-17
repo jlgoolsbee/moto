@@ -787,6 +787,38 @@ def test_update_stack_from_s3_url():
 
 
 @mock_cloudformation
+def test_create_change_set_with_previous_value():
+    name = "create_change_set_with_previous_value"
+    cf_conn = boto3.client("cloudformation", region_name="us-east-1")
+    cf_conn.create_stack(
+        StackName=name,
+        TemplateBody=dummy_template_yaml_with_ref,
+        Parameters=[
+            {"ParameterKey": "TagName", "ParameterValue": "foo"},
+            {"ParameterKey": "TagDescription", "ParameterValue": "bar"},
+        ],
+    )
+    response = cf_conn.create_change_set(
+        StackName=name,
+        UsePreviousTemplate=True,
+        ChangeSetName="NewChangeSet",
+        ChangeSetType="CREATE",
+        Parameters=[
+            {"ParameterKey": "TagName", "UsePreviousValue": True},
+            {"ParameterKey": "TagDescription", "ParameterValue": "not bar"},
+        ],
+    )
+    assert (
+        "arn:aws:cloudformation:us-east-1:123456789:changeSet/NewChangeSet/"
+        in response["Id"]
+    )
+    assert (
+        "arn:aws:cloudformation:us-east-1:123456789:stack/create_change_set_with_previous_value"
+        in response["StackId"]
+    )
+
+
+@mock_cloudformation
 @mock_s3
 def test_create_change_set_from_s3_url():
     s3 = boto3.client("s3")
